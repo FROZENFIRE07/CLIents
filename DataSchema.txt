@@ -1,0 +1,381 @@
+Exactly. And this is probably the **last major design piece** before implementation.
+
+Right now, you've defined:
+
+* ✅ Product vision
+* ✅ User workflows
+* ✅ Business rules
+* ✅ UX behavior
+* ✅ Reliability strategy
+* ✅ Notification flow
+* ✅ Deployment constraints
+
+The missing piece is:
+
+> **How is the information represented?**
+
+That's the database schema.
+
+---
+
+## Don't start with MongoDB collections.
+
+Start with **entities**.
+
+Ask:
+
+> "What are the nouns in my system?"
+
+From your architecture, I see these:
+
+```text
+User
+Student
+Class
+AttendanceSession
+AttendanceRecord
+Exam
+Marks
+Notification
+NotificationQueue
+AppVersion
+```
+
+Those are your collections.
+
+---
+
+# Example
+
+Instead of telling AI:
+
+```
+Create Student Schema
+```
+
+We define it first.
+
+## Student
+
+```
+Student
+--------
+_id
+
+studentId
+rollNo
+
+fullName
+
+parentName
+parentPhone
+
+classId
+
+admissionDate
+
+status
+    Active
+    Archived
+
+createdAt
+updatedAt
+```
+
+Notice what's NOT there:
+
+* Address
+* Photo
+* Aadhaar
+* Email
+* DOB
+
+Because your V1 doesn't need them.
+
+---
+
+## Class
+
+```
+Class
+------
+_id
+
+name
+Example:
+10th A
+9th B
+
+standard
+
+academicYear
+
+teacherId (optional)
+
+isActive
+```
+
+---
+
+## Attendance Session
+
+This is the most important collection.
+
+```
+AttendanceSession
+-----------------
+
+_id
+
+classId
+
+date
+
+status
+
+Draft
+Submitted
+NotificationsSent
+
+presentCount
+
+absentCount
+
+createdBy
+
+submittedAt
+```
+
+Notice
+
+You don't store every student here.
+
+---
+
+## Attendance Record
+
+```
+AttendanceRecord
+----------------
+
+_id
+
+attendanceSessionId
+
+studentId
+
+status
+
+Present
+Absent
+
+markedAt
+```
+
+Now analytics become easy.
+
+---
+
+## Notification
+
+```
+Notification
+
+_id
+
+studentId
+
+attendanceSessionId
+
+parentPhone
+
+message
+
+status
+
+Pending
+Sent
+Failed
+
+retryCount
+
+sentAt
+```
+
+---
+
+## Exam
+
+```
+Exam
+
+_id
+
+name
+
+classId
+
+subject
+
+maxMarks
+
+date
+```
+
+---
+
+## Marks
+
+```
+Marks
+
+_id
+
+examId
+
+studentId
+
+marksObtained
+```
+
+---
+
+## User
+
+Initially:
+
+```
+User
+
+_id
+
+name
+
+username
+
+passwordHash
+
+role
+
+Admin
+Teacher
+
+isActive
+```
+
+---
+
+## App Version
+
+Since you added updates:
+
+```
+AppVersion
+
+_id
+
+version
+
+minimumVersion
+
+apkUrl
+
+releaseNotes
+
+mandatory
+```
+
+---
+
+# Relationships
+
+This is the important part.
+
+```
+User
+ │
+ └──────────────┐
+                │
+            creates
+                │
+Attendance Session
+        │
+        │
+        ├──────── Attendance Records
+        │               │
+        │               │
+        │           Student
+        │
+        └──────── Notifications
+
+
+Student
+    │
+    ├──────── Marks
+    │
+    ├──────── Attendance Records
+    │
+    └──────── Class
+
+
+Class
+    │
+    ├──────── Students
+    │
+    └──────── Exams
+
+
+Exam
+   │
+   └──────── Marks
+```
+
+---
+
+# Why I wouldn't let AI invent this
+
+Because AI will probably generate something like:
+
+```
+Student
+
+attendance:[]
+marks:[]
+notifications:[]
+```
+
+Everything embedded.
+
+Looks simple.
+
+Becomes terrible later.
+
+Your current design naturally favors **referenced collections**, which is much cleaner for analytics, reports, and long-term maintenance.
+
+---
+
+## My proposal
+
+I think tomorrow shouldn't be "coding."
+
+I think tomorrow should be **Database Design Day**.
+
+Not writing Mongoose models.
+
+Actually designing them.
+
+One whiteboard.
+
+One box per entity.
+
+Fields.
+
+Relationships.
+
+Constraints.
+
+By the end, you'll have **the blueprint of your data**.
+
+Once that's done, Antigravity (or any capable AI) won't invent a generic schema. It will simply translate *your* schema into Mongoose models, indexes, validation, and APIs.
+
+At that point, you've effectively designed **90% of the system**. The remaining work is implementation, testing, and refinement rather than figuring out what the system should be.
