@@ -19,10 +19,7 @@ const analyticsRoutes = require('./routes/analytics.routes');
 const notificationRoutes = require('./routes/notification.routes');
 const versionRoutes = require('./routes/version.routes');
 const whatsappRoutes = require('./routes/whatsapp.routes');
-
-// Services
-const whatsappService = require('./services/whatsapp.service');
-const notificationQueue = require('./queues/notification.queue');
+const workerRoutes = require('./routes/worker.routes');
 
 const app = express();
 
@@ -52,6 +49,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/version', versionRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
+app.use('/api/worker', workerRoutes);
 
 // ---------- 404 Handler ----------
 app.use((req, res) => {
@@ -72,23 +70,13 @@ const startServer = async () => {
 
   app.listen(PORT, () => {
     console.log(`[SERVER] CMS-Lite running on port ${PORT} (${process.env.NODE_ENV || 'development'})`);
-
-    // Initialize WhatsApp and notification queue (non-blocking)
-    if (process.env.ENABLE_WHATSAPP === 'true') {
-      whatsappService.initialize().then(() => {
-        notificationQueue.start(10000); // Check queue every 10 seconds
-      });
-    } else {
-      console.log('[SERVER] WhatsApp disabled. Set ENABLE_WHATSAPP=true in .env to enable.');
-    }
+    console.log('[SERVER] Pure API server — WhatsApp worker runs inside CMS Lite Desktop.');
   });
 };
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
   console.log('\n[SERVER] Shutting down...');
-  notificationQueue.stop();
-  await whatsappService.disconnect();
   process.exit(0);
 });
 

@@ -25,7 +25,7 @@ exports.getNotifications = asyncHandler(async (req, res) => {
 
 exports.getNotificationStats = asyncHandler(async (req, res) => {
   const stats = await Notification.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]);
-  const result = { queued: 0, sending: 0, sent: 0, failed: 0 };
+  const result = { queued: 0, sending: 0, sent: 0, failed: 0, expired: 0 };
   stats.forEach((s) => { result[s._id] = s.count; });
   apiResponse(res, 200, { stats: result });
 });

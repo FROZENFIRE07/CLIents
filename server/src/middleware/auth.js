@@ -64,4 +64,19 @@ const authorize = (...roles) => {
   };
 };
 
-module.exports = { protect, authorize };
+/**
+ * Worker authentication — shared secret (not JWT).
+ * The notification worker is a system process, not a user session.
+ */
+const workerAuth = (req, res, next) => {
+  const key = req.headers['x-worker-key'];
+  if (!key || key !== process.env.WORKER_API_KEY) {
+    return res.status(401).json({
+      success: false,
+      message: 'Invalid or missing worker API key',
+    });
+  }
+  next();
+};
+
+module.exports = { protect, authorize, workerAuth };

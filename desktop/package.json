@@ -1,0 +1,63 @@
+{
+  "name": "cmslite-desktop",
+  "productName": "CMS Lite Desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CMS Lite Desktop — Administration + Notifications",
+  "main": "electron/main.cjs",
+  "type": "module",
+  "scripts": {
+    "dev:web": "vite",
+    "dev:electron": "electron .",
+    "dev": "concurrently -n web,electron \"npm run dev:web\" \"wait-on http://localhost:5173 && npm run dev:electron\"",
+    "build:web": "tsc -b && vite build",
+    "build": "npm run build:web && electron-builder",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "axios": "^1.18.1",
+    "lucide-react": "^1.23.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.1",
+    "recharts": "^3.9.2",
+    "whatsapp-web.js": "^1.26.1-alpha.3",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "concurrently": "^9.1.2",
+    "electron": "^35.2.1",
+    "electron-builder": "^26.0.12",
+    "oxlint": "^1.71.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.1.1",
+    "wait-on": "^8.0.3"
+  },
+  "build": {
+    "appId": "com.goradeclasses.cmslite",
+    "productName": "CMS Lite Desktop",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "public/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "public/favicon.svg"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "public/favicon.svg",
+      "uninstallerIcon": "public/favicon.svg"
+    }
+  }
+}

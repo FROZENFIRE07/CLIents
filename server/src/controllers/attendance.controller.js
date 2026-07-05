@@ -154,6 +154,7 @@ exports.submitSession = asyncHandler(async (req, res) => {
       studentId: student._id,
       parentPhone: student.parentPhone,
       message: `Respected ${student.parentName}, this is to inform you that ${student.fullName} (Roll No: ${student.rollNo}) was absent today. — Gorade Classes`,
+      attendanceDate: session.date.toISOString().split('T')[0],
       status: NOTIFICATION_STATUS.QUEUED,
       queuedAt: new Date(),
     }));

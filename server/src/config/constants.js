@@ -30,6 +30,7 @@ module.exports = {
     SENDING: 'sending',
     SENT: 'sent',
     FAILED: 'failed',
+    EXPIRED: 'expired',
   },
 
   // Notification retry config

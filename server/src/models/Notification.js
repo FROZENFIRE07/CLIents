@@ -22,6 +22,10 @@ const notificationSchema = new mongoose.Schema(
       required: [true, 'Message is required'],
       maxlength: 500,
     },
+    attendanceDate: {
+      type: String, // "YYYY-MM-DD" — used for date-based expiry
+      required: [true, 'Attendance date is required'],
+    },
     status: {
       type: String,
       enum: Object.values(NOTIFICATION_STATUS),
@@ -56,6 +60,9 @@ const notificationSchema = new mongoose.Schema(
 
 // Queue processing: pick oldest queued/retryable notifications
 notificationSchema.index({ status: 1, nextRetryAt: 1 });
+
+// Expiry: bulk-expire stale notifications by date
+notificationSchema.index({ status: 1, attendanceDate: 1 });
 
 // Query: all notifications for a session
 notificationSchema.index({ sessionId: 1 });
