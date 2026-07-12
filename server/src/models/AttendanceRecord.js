@@ -24,7 +24,7 @@ const attendanceRecordSchema = new mongoose.Schema(
     },
   },
   {
-    timestamps: false, // markedAt is sufficient
+    timestamps: true, // enables updatedAt for incremental sync
   }
 );
 

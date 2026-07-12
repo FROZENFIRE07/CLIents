@@ -54,7 +54,7 @@ const notificationSchema = new mongoose.Schema(
     },
   },
   {
-    timestamps: false, // queuedAt + sentAt are sufficient
+    timestamps: true, // enables updatedAt for incremental sync
   }
 );
 
