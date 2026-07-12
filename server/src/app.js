@@ -82,9 +82,16 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
-startServer().catch((err) => {
-  console.error('[SERVER] Failed to start:', err.message);
-  process.exit(1);
-});
+// Run server only if executed directly (e.g. `node app.js`)
+// If imported (e.g. by Vercel Serverless Functions), just export it.
+if (require.main === module) {
+  startServer().catch((err) => {
+    console.error('[SERVER] Failed to start:', err.message);
+    process.exit(1);
+  });
+} else {
+  // Connect to DB for serverless environment when module is imported
+  connectDB().catch(console.error);
+}
 
 module.exports = app;
