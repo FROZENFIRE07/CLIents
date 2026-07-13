@@ -89,9 +89,19 @@ if (require.main === module) {
     console.error('[SERVER] Failed to start:', err.message);
     process.exit(1);
   });
-} else {
-  // Connect to DB for serverless environment when module is imported
-  connectDB().catch(console.error);
 }
 
-module.exports = app;
+// For Vercel Serverless: wrap app in a handler that ensures DB is connected
+// before processing any request. This eliminates the race condition where
+// a request arrives before connectDB() finishes.
+const handler = async (req, res) => {
+  await connectDB();
+  return app(req, res);
+};
+
+// Export both for flexibility:
+// - `app` for local dev (require.main === module runs startServer)
+// - `handler` (default) for Vercel Serverless
+module.exports = handler;
+module.exports.app = app;
+
