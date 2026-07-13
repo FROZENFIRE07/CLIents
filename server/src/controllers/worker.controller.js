@@ -43,6 +43,24 @@ exports.getNextNotification = async (req, res) => {
       console.log(`[WORKER-API] Expired ${expireResult.modifiedCount} stale notification(s)`);
     }
 
+    // ── Step 1b: Recover orphaned 'sending' notifications ─────────────
+    // If a notification has been in 'sending' for over 2 minutes, it means
+    // the worker crashed or lost connection. Reset it back to 'queued'.
+    const twoMinAgo = new Date(Date.now() - 2 * 60 * 1000);
+    const recoverResult = await Notification.updateMany(
+      {
+        status: NOTIFICATION_STATUS.SENDING,
+        updatedAt: { $lt: twoMinAgo },
+      },
+      {
+        $set: { status: NOTIFICATION_STATUS.QUEUED },
+      }
+    );
+
+    if (recoverResult.modifiedCount > 0) {
+      console.log(`[WORKER-API] Recovered ${recoverResult.modifiedCount} stuck 'sending' notification(s)`);
+    }
+
     // ── Step 2: Find next valid notification ───────────────────────────
     const notification = await Notification.findOne({
       $or: [
