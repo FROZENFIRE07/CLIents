@@ -11,8 +11,15 @@ export default function StudentsPage() {
   const { students, loadByClass, init } = useStudentStore();
   const [selectedClass, setSelectedClass] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ rollNo: '', fullName: '', parentName: '', parentPhone: '', classId: '' });
+  const [form, setForm] = useState({ rollNo: '', fullName: '', parentName: '', parentPhone: '+91', classId: '' });
   const [saving, setSaving] = useState(false);
+
+  const normalizeParentPhone = (phone: string) => {
+    const trimmed = phone.trim();
+    if (!trimmed) return '+91';
+    if (trimmed.startsWith('+91')) return trimmed;
+    return `+91${trimmed.replace(/^91/, '')}`;
+  };
 
   // Init student store refresh listener
   useEffect(() => {
@@ -35,9 +42,13 @@ export default function StudentsPage() {
   const handleAdd = async () => {
     setSaving(true);
     try {
-      await api.post('/students', { ...form, classId: form.classId || selectedClass });
+      await api.post('/students', {
+        ...form,
+        parentPhone: normalizeParentPhone(form.parentPhone),
+        classId: form.classId || selectedClass,
+      });
       setShowModal(false);
-      setForm({ rollNo: '', fullName: '', parentName: '', parentPhone: '', classId: '' });
+      setForm({ rollNo: '', fullName: '', parentName: '', parentPhone: '+91', classId: '' });
       // Sync to pull the new student into cache
       syncEngine.syncNow();
     } catch {} finally { setSaving(false); }
@@ -112,7 +123,7 @@ export default function StudentsPage() {
             <div className="form-group"><label>Parent Name</label>
               <input value={form.parentName} onChange={(e) => setForm({ ...form, parentName: e.target.value })} placeholder="Parent name" /></div>
             <div className="form-group"><label>Parent Phone (with country code)</label>
-              <input value={form.parentPhone} onChange={(e) => setForm({ ...form, parentPhone: e.target.value })} placeholder="e.g. 919876543210" /></div>
+              <input value={form.parentPhone} onChange={(e) => setForm({ ...form, parentPhone: e.target.value })} placeholder="e.g. +919876543210" /></div>
             <div className="form-group"><label>Class</label>
               <select value={form.classId || selectedClass} onChange={(e) => setForm({ ...form, classId: e.target.value })}>
                 {classes.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}

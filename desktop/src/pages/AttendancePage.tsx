@@ -5,6 +5,7 @@ import PageHero from '../components/PageHero';
 import { useClassStore } from '../stores/useClassStore';
 import { useDashboardStore } from '../stores/useDashboardStore';
 import { cache } from '../services/cache';
+import { syncEngine } from '../services/syncEngine';
 
 export default function AttendancePage() {
   const { classes } = useClassStore();
@@ -13,7 +14,22 @@ export default function AttendancePage() {
   const [timeline, setTimeline] = useState<any[]>([]);
   const [hasData, setHasData] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshTick, setRefreshTick] = useState(0);
   const mountedRef = useRef(true);
+  const isCompletedSession = (status: string) => status === 'submitted' || status === 'notifications_sent';
+
+  const getTimelineMaxDate = (items: any[]) => {
+    if (items.length === 0) return 0;
+    return Math.max(...items.map((item) => new Date(item.date).getTime()));
+  };
+
+  const pickNewestTimeline = (apiTimeline: any[], localTimeline: any[]) => {
+    if (localTimeline.length === 0) return apiTimeline;
+    if (apiTimeline.length === 0) return localTimeline;
+    return getTimelineMaxDate(localTimeline) >= getTimelineMaxDate(apiTimeline)
+      ? localTimeline
+      : apiTimeline;
+  };
 
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
@@ -22,11 +38,34 @@ export default function AttendancePage() {
     if (classes.length > 0 && !selectedClass) setSelectedClass(classes[0]._id);
   }, [classes]);
 
+  useEffect(() => {
+    const unsubscribe = syncEngine.onRefresh(() => {
+      setRefreshTick((value) => value + 1);
+    });
+    return unsubscribe;
+  }, []);
+
   // Filter sessions from cache for selected class
   const sessions = allSessions.filter((s: any) => {
     const classId = typeof s.classId === 'object' ? s.classId?._id : s.classId;
     return classId === selectedClass;
   });
+  const sessionSignature = sessions
+    .map((s: any) => `${s._id}:${s.updatedAt || s.createdAt || s.date}:${s.status}`)
+    .join('|');
+
+  const localTimeline = sessions
+    .filter((s: any) => isCompletedSession(s.status))
+    .map((s: any) => ({
+      date: s.date,
+      present: s.presentCount,
+      absent: s.absentCount,
+      total: s.totalStudents,
+      rate: s.totalStudents > 0
+        ? ((s.presentCount / s.totalStudents) * 100).toFixed(1)
+        : '0',
+    }))
+    .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   // ── Offline-first: cache → render → background refresh ──
   useEffect(() => {
@@ -35,20 +74,11 @@ export default function AttendancePage() {
     // Step 1: Instantly load cached timeline
     (async () => {
       const cached = await cache.getMeta<any[]>(`timeline_${selectedClass}`);
-      if (cached && cached.length > 0 && mountedRef.current) {
-        setTimeline(cached);
+      if (localTimeline.length > 0 && mountedRef.current) {
+        setTimeline(localTimeline);
         setHasData(true);
-      } else if (sessions.length > 0) {
-        // Compute basic timeline from cached sessions
-        const tl = sessions.map((s: any) => ({
-          date: s.date,
-          rate: s.totalStudents > 0
-            ? ((s.presentCount / s.totalStudents) * 100).toFixed(1)
-            : '0',
-          present: s.presentCount,
-          absent: s.absentCount,
-        }));
-        setTimeline(tl);
+      } else if (cached && cached.length > 0 && mountedRef.current) {
+        setTimeline(cached);
         setHasData(true);
       }
     })();
@@ -58,17 +88,18 @@ export default function AttendancePage() {
     api.get(`/analytics/attendance?classId=${selectedClass}`)
       .then(({ data }) => {
         if (!mountedRef.current) return;
-        const tl = data.data.timeline || [];
-        setTimeline(tl);
+        const apiTimeline = data.data.timeline || [];
+        const merged = pickNewestTimeline(apiTimeline, localTimeline);
+        setTimeline(merged);
         setHasData(true);
         // Update cache for next time
-        cache.setMeta(`timeline_${selectedClass}`, tl);
+        cache.setMeta(`timeline_${selectedClass}`, merged);
       })
       .catch(() => {
         // API failed — we already have cached data showing, so do nothing
       })
       .finally(() => { if (mountedRef.current) setRefreshing(false); });
-  }, [selectedClass]);
+  }, [selectedClass, refreshTick, sessionSignature]);
 
   const chartData = timeline.map((t: any) => ({
     date: new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),

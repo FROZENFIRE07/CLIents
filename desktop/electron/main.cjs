@@ -56,6 +56,11 @@ function createWindow() {
   const defaultW = Math.min(1400, display.width);
   const defaultH = Math.min(900,  display.height);
 
+  // Icon: in packaged build it's in resources/public/, in dev it's in public/
+  const iconPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'public', 'icon.ico')
+    : path.join(__dirname, '..', 'public', 'icon.ico');
+
   mainWindow = new BrowserWindow({
     // Restore saved size or use defaults
     x:      saved?.x      ?? undefined,
@@ -75,7 +80,7 @@ function createWindow() {
     show: false,
 
     title: 'Gorade Classes',
-    icon: path.join(__dirname, '..', 'public', 'favicon.svg'),
+    icon: iconPath,
 
     webPreferences: {
       preload:          path.join(__dirname, 'preload.cjs'),

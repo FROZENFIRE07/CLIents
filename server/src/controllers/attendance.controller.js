@@ -5,6 +5,8 @@ const Notification = require('../models/Notification');
 const { SESSION_STATUS, ATTENDANCE_STATUS, NOTIFICATION_STATUS, STUDENT_STATUS } = require('../config/constants');
 const { asyncHandler, apiResponse, normalizeDate } = require('../utils/helpers');
 
+const COMPLETED_SESSION_STATUSES = [SESSION_STATUS.SUBMITTED, SESSION_STATUS.NOTIFICATIONS_SENT];
+
 /**
  * POST /api/attendance/sessions
  * Create a new draft attendance session for a class+date.
@@ -97,7 +99,7 @@ exports.submitSession = asyncHandler(async (req, res) => {
     return res.status(404).json({ success: false, message: 'Session not found' });
   }
 
-  if (session.status === SESSION_STATUS.SUBMITTED) {
+  if (COMPLETED_SESSION_STATUSES.includes(session.status)) {
     return res.status(409).json({
       success: false,
       message: 'Session already submitted',
@@ -185,7 +187,7 @@ exports.syncOfflineSession = asyncHandler(async (req, res) => {
   const existing = await AttendanceSession.findOne({
     classId,
     date: normalizedDate,
-    status: SESSION_STATUS.SUBMITTED,
+    status: { $in: COMPLETED_SESSION_STATUSES },
   });
 
   if (existing) {

@@ -11,18 +11,22 @@
  * - GPU-only: opacity transitions, object-fit cover, no filter/blur.
  * - The user should never notice the moment it changed.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+
+import morningImg   from '/morning.png';
+import afternoonImg from '/afternoon.png';
+import eveningImg   from '/evening.png';
+import nightImg     from '/Night.png';
 
 // ─── Image sources (loaded once) ───────────────────────────────────────────
 const IMAGES = {
-  morning:   '/morning.png',
-  afternoon: '/afternoon.png',
-  evening:   '/evening.png',
-  night:     '/Night.png',
+  morning:   morningImg,
+  afternoon: afternoonImg,
+  evening:   eveningImg,
+  night:     nightImg,
 } as const;
 
 type Period = keyof typeof IMAGES;
-const PERIODS: Period[] = ['morning', 'afternoon', 'evening', 'night'];
 
 // ─── Time model ─────────────────────────────────────────────────────────────
 // Each window: [startMinutes, endMinutes, fromPeriod, toPeriod]

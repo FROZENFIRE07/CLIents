@@ -7,6 +7,8 @@ const Notification = require('../models/Notification');
 const { asyncHandler, apiResponse } = require('../utils/helpers');
 const { buildFullPayload } = require('./bootstrap.controller');
 
+const COMPLETED_SESSION_STATUSES = ['submitted', 'notifications_sent'];
+
 /**
  * GET /api/sync?since=ISO_TIMESTAMP
  *
@@ -44,10 +46,10 @@ const sync = asyncHandler(async (req, res) => {
   const [totalStudents, totalSessions, notifStats, attendanceAgg] =
     await Promise.all([
       Student.countDocuments({ status: 'active' }),
-      AttendanceSession.countDocuments({ status: 'submitted' }),
+      AttendanceSession.countDocuments({ status: { $in: COMPLETED_SESSION_STATUSES } }),
       Notification.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
       AttendanceSession.aggregate([
-        { $match: { status: 'submitted' } },
+        { $match: { status: { $in: COMPLETED_SESSION_STATUSES } } },
         { $group: { _id: null, totalPresent: { $sum: '$presentCount' }, totalStudents: { $sum: '$totalStudents' } } },
       ]),
     ]);

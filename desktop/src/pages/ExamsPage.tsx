@@ -4,7 +4,6 @@ import { useClassStore } from '../stores/useClassStore';
 import { useStudentStore } from '../stores/useStudentStore';
 import { useExamStore } from '../stores/useExamStore';
 import { syncEngine } from '../services/syncEngine';
-import { cache } from '../services/cache';
 
 export default function ExamsPage() {
   const { classes } = useClassStore();
@@ -243,7 +242,7 @@ export default function ExamsPage() {
                             </td>
                             <td>
                               {isAbsent
-                                ? <span className="badge badge-danger">Absent on exam day</span>
+                                ? <span className="badge badge-danger">Absent</span>
                                 : <span className="badge badge-success">Present</span>
                               }
                             </td>

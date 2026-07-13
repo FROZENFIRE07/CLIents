@@ -32,12 +32,22 @@ export default function LandingPage() {
   const today = new Date();
 
   // ── Read from stores (IndexedDB cache) — instant, no API calls ──
-  const { analytics, notifStats } = useDashboardStore();
+  const { analytics, notifStats, sessions } = useDashboardStore();
   const { classes } = useClassStore();
+  const isCompletedSession = (status: string) => status === 'submitted' || status === 'notifications_sent';
+  const todayStr = today.toISOString().split('T')[0];
+  const completedToday = new Set<string>();
+
+  sessions.forEach((session: any) => {
+    const sessionDate = session.date ? new Date(session.date).toISOString().split('T')[0] : '';
+    if (sessionDate === todayStr && isCompletedSession(session.status)) {
+      completedToday.add(String(session.classId));
+    }
+  });
 
   const glance = {
-    classesToday: analytics?.totalSessions ?? classes.length,
-    attendancePending: analytics?.pendingAttendance ?? 0,
+    classesToday: classes.length,
+    attendancePending: Math.max(classes.length - completedToday.size, 0),
     examsUpcoming: analytics?.upcomingExams ?? 0,
     unreadMessages: notifStats?.queued ?? 0,
   };

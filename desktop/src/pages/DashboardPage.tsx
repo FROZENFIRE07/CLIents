@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { useClassStore } from '../stores/useClassStore';
 import { useDashboardStore } from '../stores/useDashboardStore';
-import { useNotificationStore } from '../stores/useNotificationStore';
 
 /* ── helpers ─────────────────────────────── */
 function getGreeting() {
@@ -93,6 +92,15 @@ export default function DashboardPage() {
   // ── Read from stores (IndexedDB cache) — instant, no API calls ──
   const { classes: allClasses } = useClassStore();
   const { analytics: dashData, sessions, notifStats } = useDashboardStore();
+  const classNameById = new Map(allClasses.map((cls: any) => [String(cls._id), cls.name]));
+  const isCompletedSession = (status: string) => status === 'submitted' || status === 'notifications_sent';
+  const getClassName = (classId: any) => {
+    if (!classId) return '—';
+    if (typeof classId === 'object') {
+      return classId.name || classNameById.get(String(classId._id)) || '—';
+    }
+    return classNameById.get(String(classId)) || '—';
+  };
 
   const [time, setTime] = useState(fmtTime(new Date()));
 
@@ -106,7 +114,7 @@ export default function DashboardPage() {
   const todayMap = new Map<string, any>();
   sessions.forEach((s: any) => {
     const sDate = s.date ? new Date(s.date).toISOString().split('T')[0] : '';
-    if (sDate === todayStr && s.status === 'submitted') {
+    if (sDate === todayStr && isCompletedSession(s.status)) {
       todayMap.set(String(s.classId), s);
     }
   });
@@ -129,7 +137,7 @@ export default function DashboardPage() {
 
   // Recent submitted sessions (newest first, already sorted by store)
   const recentSessions = sessions
-    .filter((s: any) => s.status === 'submitted')
+    .filter((s: any) => isCompletedSession(s.status))
     .slice(0, 7);
 
   /* ═══════════════════════════════════════════ */
@@ -169,7 +177,7 @@ export default function DashboardPage() {
             <JourneyStep label="Marks" sub="Locked" status="locked" />
             <JourneyStep
               label="Communication"
-              sub={comsDone ? `${notifStats.sent} sent` : 'Locked'}
+              sub={comsDone ? `${notifStats?.sent ?? 0} sent` : 'Locked'}
               status={comsDone ? 'done' : 'locked'}
               last
             />
@@ -284,7 +292,7 @@ export default function DashboardPage() {
                 <div className="db-attention-icon"><MessageSquare size={15} strokeWidth={1.8} /></div>
                 <div className="db-attention-text">
                   <span className="db-attention-title">Messages Queued</span>
-                  <span className="db-attention-sub">{notifStats.queued} pending to send</span>
+                  <span className="db-attention-sub">{notifStats?.queued ?? 0} pending to send</span>
                 </div>
                 <ChevronRight size={15} style={{ opacity: 0.35, flexShrink: 0 }} />
               </button>
@@ -295,7 +303,7 @@ export default function DashboardPage() {
                 <div className="db-attention-icon"><MessageSquare size={15} strokeWidth={1.8} /></div>
                 <div className="db-attention-text">
                   <span className="db-attention-title">Failed Messages</span>
-                  <span className="db-attention-sub">{notifStats.failed} need retry</span>
+                  <span className="db-attention-sub">{notifStats?.failed ?? 0} need retry</span>
                 </div>
                 <ChevronRight size={15} style={{ opacity: 0.35, flexShrink: 0 }} />
               </button>
@@ -310,7 +318,7 @@ export default function DashboardPage() {
               <ChevronRight size={15} style={{ opacity: 0.35, flexShrink: 0 }} />
             </button>
 
-            {pendingClasses.length === 0 && !(notifStats?.queued > 0) && !(notifStats?.failed > 0) && (
+            {pendingClasses.length === 0 && !((notifStats?.queued ?? 0) > 0) && !((notifStats?.failed ?? 0) > 0) && (
               <div className="db-all-clear">
                 <CheckCircle2 size={14} strokeWidth={1.8} style={{ opacity: 0.4 }} />
                 <span>No urgent student issues</span>
@@ -362,7 +370,7 @@ export default function DashboardPage() {
                 return (
                   <div key={i} className="db-recent-row">
                     <div className="db-recent-meta">
-                      <span className="db-recent-class">{s.classId?.name ?? '—'}</span>
+                      <span className="db-recent-class">{getClassName(s.classId)}</span>
                       <span className="db-recent-date">{s.date ? fmtShortDate(s.date) : '—'}</span>
                     </div>
                     <div className="db-recent-stats">

@@ -1,9 +1,13 @@
 {
   "name": "cmslite-desktop",
-  "productName": "CMS Lite Desktop",
+  "productName": "Gorade Classes",
   "version": "1.0.0",
   "private": true,
-  "description": "CMS Lite Desktop — Administration + Notifications",
+  "description": "Gorade Classes — School Management & WhatsApp Notification Desktop App",
+  "author": {
+    "name": "Gorade Classes",
+    "email": "admin@goradeclasses.com"
+  },
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
@@ -12,6 +16,7 @@
     "dev": "concurrently -n web,electron \"npm run dev:web\" \"wait-on http://localhost:5173 && npm run dev:electron\"",
     "build:web": "tsc -b && vite build",
     "build": "npm run build:web && electron-builder",
+    "build:dir": "npm run build:web && electron-builder --dir",
     "lint": "oxlint",
     "preview": "vite preview"
   },
@@ -42,24 +47,71 @@
   },
   "build": {
     "appId": "com.goradeclasses.cmslite",
-    "productName": "CMS Lite Desktop",
+    "productName": "Gorade Classes",
+    "copyright": "Copyright © 2025 Gorade Classes",
+
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build-resources"
     },
+
     "files": [
       "dist/**/*",
       "electron/**/*",
-      "public/**/*"
+      "node_modules/**/*",
+      "!node_modules/**/test/**",
+      "!node_modules/**/*.md",
+      "!node_modules/**/*.map",
+      "!node_modules/**/LICENSE",
+      "!node_modules/**/CHANGELOG*",
+      "!node_modules/**/.github/**",
+      "!node_modules/**/docs/**",
+      "!node_modules/**/example/**",
+      "!node_modules/**/examples/**"
     ],
+
+    "extraResources": [
+      {
+        "from": "public",
+        "to": "public",
+        "filter": ["icon.ico", "favicon.svg"]
+      }
+    ],
+
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/whatsapp-web.js/**",
+      "node_modules/puppeteer-core/**",
+      "node_modules/@puppeteer/**"
+    ],
+
     "win": {
-      "target": "nsis",
-      "icon": "public/favicon.svg"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "public/icon.ico",
+      "requestedExecutionLevel": "asInvoker"
     },
+
     "nsis": {
       "oneClick": false,
+      "perMachine": false,
       "allowToChangeInstallationDirectory": true,
-      "installerIcon": "public/favicon.svg",
-      "uninstallerIcon": "public/favicon.svg"
-    }
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Gorade Classes",
+      "installerIcon": "public/icon.ico",
+      "uninstallerIcon": "public/icon.ico",
+      "installerHeaderIcon": "public/icon.ico",
+      "deleteAppDataOnUninstall": false,
+      "installerLanguages": ["en_US"],
+      "language": "1033"
+    },
+
+    "publish": null
   }
 }

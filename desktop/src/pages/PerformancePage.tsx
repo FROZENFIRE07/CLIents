@@ -4,6 +4,8 @@ import api from '../services/api';
 import { useClassStore } from '../stores/useClassStore';
 import { useStudentStore } from '../stores/useStudentStore';
 import { cache } from '../services/cache';
+import { syncEngine } from '../services/syncEngine';
+import MonoDropdown from '../components/MonoDropdown';
 
 export default function PerformancePage() {
   const { classes } = useClassStore();
@@ -13,6 +15,7 @@ export default function PerformancePage() {
   const [perfData, setPerfData] = useState<any>(null);
   const [hasData, setHasData] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshTick, setRefreshTick] = useState(0);
   const mountedRef = useRef(true);
 
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
@@ -21,6 +24,13 @@ export default function PerformancePage() {
   useEffect(() => {
     const cleanup = init();
     return cleanup;
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = syncEngine.onRefresh(() => {
+      setRefreshTick((value) => value + 1);
+    });
+    return unsubscribe;
   }, []);
 
   // Auto-select first class
@@ -69,7 +79,7 @@ export default function PerformancePage() {
         // API failed — cached data is already showing
       })
       .finally(() => { if (mountedRef.current) setRefreshing(false); });
-  }, [selectedStudent]);
+  }, [selectedStudent, refreshTick]);
 
   const marksChart = perfData?.marks?.map((m: any) => ({
     exam: m.examId?.name || '?',
@@ -89,18 +99,20 @@ export default function PerformancePage() {
 
       {/* Filters */}
       <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap', alignItems: 'center' }}>
-        <div className="form-group" style={{ marginBottom: 0, minWidth: 180 }}>
-          <label>Class</label>
-          <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)}>
-            {classes.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-          </select>
-        </div>
-        <div className="form-group" style={{ marginBottom: 0, minWidth: 220 }}>
-          <label>Student</label>
-          <select value={selectedStudent} onChange={(e) => setSelectedStudent(e.target.value)}>
-            {students.map(s => <option key={s._id} value={s._id}>{s.rollNo} — {s.fullName}</option>)}
-          </select>
-        </div>
+        <MonoDropdown
+          label="Class"
+          value={selectedClass}
+          onChange={setSelectedClass}
+          options={classes.map((c) => ({ label: c.name, value: c._id }))}
+          minWidth={180}
+        />
+        <MonoDropdown
+          label="Student"
+          value={selectedStudent}
+          onChange={setSelectedStudent}
+          options={students.map((s) => ({ label: `${s.rollNo} — ${s.fullName}`, value: s._id }))}
+          minWidth={220}
+        />
         {refreshing && (
           <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', alignSelf: 'flex-end', marginBottom: 4 }}>
             ● Refreshing…
@@ -146,11 +158,11 @@ export default function PerformancePage() {
             {marksChart.length > 0 ? (
               <ResponsiveContainer width="100%" height={280}>
                 <LineChart data={marksChart}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#2A2A4A" />
-                  <XAxis dataKey="exam" stroke="#606080" fontSize={12} tickLine={false} />
-                  <YAxis stroke="#606080" fontSize={12} tickLine={false} domain={[0, 100]} unit="%" />
-                  <Tooltip contentStyle={{ background: '#1E1E38', border: '1px solid #2A2A4A', borderRadius: 8, fontSize: 13 }} />
-                  <Line type="monotone" dataKey="pct" stroke="#00CEC9" strokeWidth={2} dot={{ fill: '#00CEC9', r: 4 }} name="Score %" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                  <XAxis dataKey="exam" stroke="rgba(255,255,255,0.35)" fontSize={12} tickLine={false} />
+                  <YAxis stroke="rgba(255,255,255,0.35)" fontSize={12} tickLine={false} domain={[0, 100]} unit="%" />
+                  <Tooltip contentStyle={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, fontSize: 13, color: '#fff' }} />
+                  <Line type="monotone" dataKey="pct" stroke="rgba(255,255,255,0.82)" strokeWidth={2} dot={{ fill: 'rgba(255,255,255,0.82)', r: 4 }} name="Score %" />
                 </LineChart>
               </ResponsiveContainer>
             ) : (

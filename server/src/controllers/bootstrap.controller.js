@@ -6,6 +6,8 @@ const Marks = require('../models/Marks');
 const Notification = require('../models/Notification');
 const { asyncHandler, apiResponse } = require('../utils/helpers');
 
+const COMPLETED_SESSION_STATUSES = ['submitted', 'notifications_sent'];
+
 /**
  * Shared function that builds the full data payload.
  * Used by both /bootstrap and /sync (when since is empty).
@@ -34,10 +36,10 @@ async function buildFullPayload() {
       .limit(CAP)
       .lean(),
     Student.countDocuments({ status: 'active' }),
-    AttendanceSession.countDocuments({ status: 'submitted' }),
+    AttendanceSession.countDocuments({ status: { $in: COMPLETED_SESSION_STATUSES } }),
     Notification.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
     AttendanceSession.aggregate([
-      { $match: { status: 'submitted' } },
+      { $match: { status: { $in: COMPLETED_SESSION_STATUSES } } },
       { $group: { _id: null, totalPresent: { $sum: '$presentCount' }, totalStudents: { $sum: '$totalStudents' } } },
     ]),
   ]);

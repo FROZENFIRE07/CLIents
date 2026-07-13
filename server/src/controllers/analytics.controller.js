@@ -5,6 +5,8 @@ const Student = require('../models/Student');
 const { SESSION_STATUS, ATTENDANCE_STATUS } = require('../config/constants');
 const { asyncHandler, apiResponse } = require('../utils/helpers');
 
+const COMPLETED_SESSION_STATUSES = [SESSION_STATUS.SUBMITTED, SESSION_STATUS.NOTIFICATIONS_SENT];
+
 /**
  * GET /api/analytics/dashboard
  * Summary cards for the website dashboard
@@ -16,8 +18,8 @@ exports.getDashboard = asyncHandler(async (req, res) => {
     recentSessions,
   ] = await Promise.all([
     Student.countDocuments({ status: 'active' }),
-    AttendanceSession.countDocuments({ status: SESSION_STATUS.SUBMITTED }),
-    AttendanceSession.find({ status: SESSION_STATUS.SUBMITTED })
+    AttendanceSession.countDocuments({ status: { $in: COMPLETED_SESSION_STATUSES } }),
+    AttendanceSession.find({ status: { $in: COMPLETED_SESSION_STATUSES } })
       .sort({ date: -1 })
       .limit(7)
       .populate('classId', 'name'),
@@ -52,7 +54,7 @@ exports.getAttendanceAnalytics = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: 'classId is required' });
   }
 
-  const filter = { classId, status: SESSION_STATUS.SUBMITTED };
+  const filter = { classId, status: { $in: COMPLETED_SESSION_STATUSES } };
   if (from || to) {
     filter.date = {};
     if (from) filter.date.$gte = new Date(from);
