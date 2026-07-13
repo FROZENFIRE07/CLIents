@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import './index.css';
 import AmbientBackground from './components/AmbientBackground';
 import TitleBar from './components/TitleBar';
@@ -106,7 +106,7 @@ function AnimatedRoutes() {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <AmbientBackground masterOpacity={0.85} />
       <SyncInitializer />
       <div className="app-shell">
@@ -115,6 +115,6 @@ export default function App() {
           <AnimatedRoutes />
         </div>
       </div>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
