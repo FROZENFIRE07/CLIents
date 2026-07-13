@@ -35,7 +35,9 @@ const sync = asyncHandler(async (req, res) => {
       AttendanceSession.find(timeFilter).sort({ updatedAt: -1 }).limit(CAP).lean(),
       Exam.find(timeFilter).sort({ updatedAt: -1 }).limit(CAP).lean(),
       Marks.find(timeFilter).sort({ updatedAt: -1 }).limit(CAP).lean(),
-      Notification.find(timeFilter).sort({ updatedAt: -1 }).limit(CAP).lean(),
+      Notification.find(timeFilter)
+        .populate('studentId', 'fullName rollNo')
+        .sort({ updatedAt: -1 }).limit(CAP).lean(),
     ]);
 
   // Dashboard analytics — always fresh

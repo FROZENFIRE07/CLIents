@@ -10,6 +10,9 @@ const { asyncHandler, apiResponse } = require('../utils/helpers');
  * Shared function that builds the full data payload.
  * Used by both /bootstrap and /sync (when since is empty).
  * Returns everything the client needs in a single object.
+ *
+ * Notifications are populated with studentId → { fullName }
+ * so the UI can display student names without a separate lookup.
  */
 async function buildFullPayload() {
   const serverTimestamp = new Date().toISOString();
@@ -25,7 +28,11 @@ async function buildFullPayload() {
     AttendanceSession.find().sort({ updatedAt: -1 }).limit(CAP).lean(),
     Exam.find().sort({ updatedAt: -1 }).limit(CAP).lean(),
     Marks.find().sort({ updatedAt: -1 }).limit(CAP).lean(),
-    Notification.find().sort({ updatedAt: -1 }).limit(CAP).lean(),
+    Notification.find()
+      .populate('studentId', 'fullName rollNo')
+      .sort({ updatedAt: -1 })
+      .limit(CAP)
+      .lean(),
     Student.countDocuments({ status: 'active' }),
     AttendanceSession.countDocuments({ status: 'submitted' }),
     Notification.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
