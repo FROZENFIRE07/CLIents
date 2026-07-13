@@ -1,32 +1,23 @@
-import { useEffect, useState } from 'react';
-import api from '../services/api';
+import { useEffect } from 'react';
+import PageHero from '../components/PageHero';
+import { useNotificationStore } from '../stores/useNotificationStore';
 
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [stats, setStats] = useState<any>(null);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [filter, setFilter] = useState('');
-  const [loading, setLoading] = useState(true);
+  const {
+    filtered: notifications, stats, isLoaded,
+    statusFilter: filter, page, setFilter, setPage,
+    init,
+  } = useNotificationStore();
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({ page: String(page), limit: '25' });
-      if (filter) params.set('status', filter);
+  // Init store refresh listener
+  useEffect(() => {
+    const cleanup = init();
+    return cleanup;
+  }, []);
 
-      const [notifRes, statsRes] = await Promise.all([
-        api.get(`/notifications?${params}`),
-        api.get('/notifications/stats'),
-      ]);
-
-      setNotifications(notifRes.data.data.notifications);
-      setTotalPages(notifRes.data.data.pagination.pages);
-      setStats(statsRes.data.data.stats);
-    } catch {} finally { setLoading(false); }
-  };
-
-  useEffect(() => { fetchData(); }, [page, filter]);
+  const PAGE_SIZE = 25;
+  const totalPages = Math.max(1, Math.ceil(notifications.length / PAGE_SIZE));
+  const paged = notifications.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const statusColor: Record<string, string> = {
     queued: 'badge-warning', sending: 'badge-primary', sent: 'badge-success', failed: 'badge-danger',
@@ -34,10 +25,7 @@ export default function NotificationsPage() {
 
   return (
     <>
-      <div className="page-header">
-        <h2>Notifications</h2>
-        <p>WhatsApp notification delivery logs</p>
-      </div>
+      <PageHero label="Notifications" sub="WhatsApp delivery logs and queue status." height={100} />
 
       {/* Stats */}
       {stats && (
@@ -69,7 +57,7 @@ export default function NotificationsPage() {
         ))}
       </div>
 
-      {loading ? (
+      {!isLoaded ? (
         <div className="loading-center"><div className="spinner" /></div>
       ) : (
         <>
@@ -79,11 +67,11 @@ export default function NotificationsPage() {
                 <tr><th>Student</th><th>Phone</th><th>Message</th><th>Status</th><th>Sent At</th><th>Retries</th></tr>
               </thead>
               <tbody>
-                {notifications.length === 0 ? (
+                {paged.length === 0 ? (
                   <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>No notifications</td></tr>
-                ) : notifications.map((n) => (
+                ) : paged.map((n) => (
                   <tr key={n._id}>
-                    <td>{n.studentId?.fullName || '—'}</td>
+                    <td>{(n as any).studentId?.fullName || '—'}</td>
                     <td style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{n.parentPhone}</td>
                     <td style={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-secondary)', fontSize: 13 }}>
                       {n.message}

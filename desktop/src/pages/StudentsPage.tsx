@@ -1,53 +1,36 @@
 import { useEffect, useState } from 'react';
 import { Plus, Archive } from 'lucide-react';
 import api from '../services/api';
-
-interface Student {
-  _id: string;
-  rollNo: string;
-  fullName: string;
-  parentName: string;
-  parentPhone: string;
-  classId: any;
-  status: string;
-  admissionDate: string;
-}
-
-interface ClassDoc {
-  _id: string;
-  name: string;
-  studentCount: number;
-}
+import PageHero from '../components/PageHero';
+import { useClassStore } from '../stores/useClassStore';
+import { useStudentStore } from '../stores/useStudentStore';
+import { syncEngine } from '../services/syncEngine';
 
 export default function StudentsPage() {
-  const [students, setStudents] = useState<Student[]>([]);
-  const [classes, setClasses] = useState<ClassDoc[]>([]);
+  const { classes } = useClassStore();
+  const { students, loadByClass, init } = useStudentStore();
   const [selectedClass, setSelectedClass] = useState('');
-  const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ rollNo: '', fullName: '', parentName: '', parentPhone: '', classId: '' });
   const [saving, setSaving] = useState(false);
 
+  // Init student store refresh listener
   useEffect(() => {
-    api.get('/classes').then(({ data }) => {
-      setClasses(data.data.classes);
-      if (data.data.classes.length > 0) {
-        setSelectedClass(data.data.classes[0]._id);
-      }
-    });
+    const cleanup = init();
+    return cleanup;
   }, []);
 
+  // Auto-select first class
   useEffect(() => {
-    if (selectedClass) fetchStudents();
-  }, [selectedClass]);
+    if (classes.length > 0 && !selectedClass) {
+      setSelectedClass(classes[0]._id);
+    }
+  }, [classes]);
 
-  const fetchStudents = async () => {
-    setLoading(true);
-    try {
-      const { data } = await api.get(`/students?classId=${selectedClass}`);
-      setStudents(data.data.students);
-    } catch {} finally { setLoading(false); }
-  };
+  // Load students from cache when class changes
+  useEffect(() => {
+    if (selectedClass) loadByClass(selectedClass);
+  }, [selectedClass]);
 
   const handleAdd = async () => {
     setSaving(true);
@@ -55,7 +38,8 @@ export default function StudentsPage() {
       await api.post('/students', { ...form, classId: form.classId || selectedClass });
       setShowModal(false);
       setForm({ rollNo: '', fullName: '', parentName: '', parentPhone: '', classId: '' });
-      fetchStudents();
+      // Sync to pull the new student into cache
+      syncEngine.syncNow();
     } catch {} finally { setSaving(false); }
   };
 
@@ -63,18 +47,15 @@ export default function StudentsPage() {
     if (!confirm('Archive this student?')) return;
     try {
       await api.patch(`/students/${id}/archive`);
-      fetchStudents();
+      syncEngine.syncNow();
     } catch {}
   };
 
   return (
     <>
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h2>Students</h2>
-          <p>Manage students across all classes</p>
-        </div>
-        <button className="btn btn-primary" onClick={() => { setForm({ ...form, classId: selectedClass }); setShowModal(true); }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <PageHero label="Students" sub="Manage your institute roster." />
+        <button className="btn btn-primary" style={{ marginTop: 16, flexShrink: 0 }} onClick={() => { setForm({ ...form, classId: selectedClass }); setShowModal(true); }}>
           <Plus size={18} /> Add Student
         </button>
       </div>
@@ -92,36 +73,32 @@ export default function StudentsPage() {
       </div>
 
       {/* Table */}
-      {loading ? (
-        <div className="loading-center"><div className="spinner" /></div>
-      ) : (
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr><th>Roll</th><th>Name</th><th>Parent</th><th>Phone</th><th>Status</th><th>Action</th></tr>
-            </thead>
-            <tbody>
-              {students.length === 0 ? (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>No students in this class</td></tr>
-              ) : students.map((s) => (
-                <tr key={s._id}>
-                  <td><strong>{s.rollNo}</strong></td>
-                  <td>{s.fullName}</td>
-                  <td style={{ color: 'var(--text-secondary)' }}>{s.parentName}</td>
-                  <td style={{ color: 'var(--text-secondary)' }}>{s.parentPhone}</td>
-                  <td><span className={`badge ${s.status === 'active' ? 'badge-success' : 'badge-danger'}`}>{s.status}</span></td>
-                  <td>
-                    <button className="btn btn-outline" style={{ padding: '5px 10px', fontSize: 12 }}
-                      onClick={() => handleArchive(s._id)}>
-                      <Archive size={14} /> Archive
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <div className="table-container">
+        <table>
+          <thead>
+            <tr><th>Roll</th><th>Name</th><th>Parent</th><th>Phone</th><th>Status</th><th>Action</th></tr>
+          </thead>
+          <tbody>
+            {students.length === 0 ? (
+              <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>No students in this class</td></tr>
+            ) : students.map((s) => (
+              <tr key={s._id}>
+                <td><strong>{s.rollNo}</strong></td>
+                <td>{s.fullName}</td>
+                <td style={{ color: 'var(--text-secondary)' }}>{s.parentName}</td>
+                <td style={{ color: 'var(--text-secondary)' }}>{s.parentPhone}</td>
+                <td><span className={`badge ${s.status === 'active' ? 'badge-success' : 'badge-danger'}`}>{s.status}</span></td>
+                <td>
+                  <button className="btn btn-outline" style={{ padding: '5px 10px', fontSize: 12 }}
+                    onClick={() => handleArchive(s._id)}>
+                    <Archive size={14} /> Archive
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {/* Add Modal */}
       {showModal && (

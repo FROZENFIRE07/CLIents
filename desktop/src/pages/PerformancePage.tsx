@@ -1,36 +1,74 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import api from '../services/api';
+import { useClassStore } from '../stores/useClassStore';
+import { useStudentStore } from '../stores/useStudentStore';
+import { cache } from '../services/cache';
 
 export default function PerformancePage() {
-  const [classes, setClasses] = useState<any[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
+  const { classes } = useClassStore();
+  const { students, loadByClass, init } = useStudentStore();
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedStudent, setSelectedStudent] = useState('');
   const [perfData, setPerfData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const [hasData, setHasData] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const mountedRef = useRef(true);
 
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+
+  // Init student store refresh listener
   useEffect(() => {
-    api.get('/classes').then(({ data }) => {
-      setClasses(data.data.classes);
-      if (data.data.classes.length > 0) setSelectedClass(data.data.classes[0]._id);
-    });
+    const cleanup = init();
+    return cleanup;
   }, []);
 
+  // Auto-select first class
+  useEffect(() => {
+    if (classes.length > 0 && !selectedClass) setSelectedClass(classes[0]._id);
+  }, [classes]);
+
+  // Load students from cache when class changes
   useEffect(() => {
     if (!selectedClass) return;
-    api.get(`/students?classId=${selectedClass}`).then(({ data }) => {
-      setStudents(data.data.students);
-      if (data.data.students.length > 0) setSelectedStudent(data.data.students[0]._id);
-    });
+    loadByClass(selectedClass);
+    setSelectedStudent('');
+    setPerfData(null);
+    setHasData(false);
   }, [selectedClass]);
 
+  // Auto-select first student
+  useEffect(() => {
+    if (students.length > 0 && !selectedStudent) setSelectedStudent(students[0]._id);
+  }, [students]);
+
+  // ── Offline-first: cache → render → background refresh ──
   useEffect(() => {
     if (!selectedStudent) return;
-    setLoading(true);
+
+    // Step 1: Instantly load cached performance data
+    (async () => {
+      const cached = await cache.getMeta<any>(`perf_${selectedStudent}`);
+      if (cached && mountedRef.current) {
+        setPerfData(cached);
+        setHasData(true);
+      }
+    })();
+
+    // Step 2: Silently fetch fresh data in background
+    setRefreshing(true);
     api.get(`/analytics/performance?studentId=${selectedStudent}`)
-      .then(({ data }) => setPerfData(data.data))
-      .catch(() => {}).finally(() => setLoading(false));
+      .then(({ data }) => {
+        if (!mountedRef.current) return;
+        setPerfData(data.data);
+        setHasData(true);
+        // Update cache for next time
+        cache.setMeta(`perf_${selectedStudent}`, data.data);
+      })
+      .catch(() => {
+        // API failed — cached data is already showing
+      })
+      .finally(() => { if (mountedRef.current) setRefreshing(false); });
   }, [selectedStudent]);
 
   const marksChart = perfData?.marks?.map((m: any) => ({
@@ -50,7 +88,7 @@ export default function PerformancePage() {
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap', alignItems: 'center' }}>
         <div className="form-group" style={{ marginBottom: 0, minWidth: 180 }}>
           <label>Class</label>
           <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)}>
@@ -63,9 +101,16 @@ export default function PerformancePage() {
             {students.map(s => <option key={s._id} value={s._id}>{s.rollNo} — {s.fullName}</option>)}
           </select>
         </div>
+        {refreshing && (
+          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', alignSelf: 'flex-end', marginBottom: 4 }}>
+            ● Refreshing…
+          </span>
+        )}
       </div>
 
-      {loading ? (
+      {!hasData && !refreshing ? (
+        <div className="loading-center">Select a student to view performance</div>
+      ) : !hasData && refreshing ? (
         <div className="loading-center"><div className="spinner" /></div>
       ) : perfData ? (
         <>
@@ -139,9 +184,7 @@ export default function PerformancePage() {
             </div>
           )}
         </>
-      ) : (
-        <div className="loading-center">Select a student to view performance</div>
-      )}
+      ) : null}
     </>
   );
 }

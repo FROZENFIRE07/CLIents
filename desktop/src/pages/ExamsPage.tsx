@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
+import { useClassStore } from '../stores/useClassStore';
+import { useStudentStore } from '../stores/useStudentStore';
+import { useExamStore } from '../stores/useExamStore';
+import { syncEngine } from '../services/syncEngine';
+import { cache } from '../services/cache';
 
 export default function ExamsPage() {
-  const [classes, setClasses] = useState<any[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
-  const [exams, setExams] = useState<any[]>([]);
+  const { classes } = useClassStore();
+  const { students, loadByClass, init: initStudents } = useStudentStore();
+  const { exams, marks: cachedMarks, loadByClass: loadExamsByClass, loadMarksByExam, init: initExams } = useExamStore();
+
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedExam, setSelectedExam] = useState<any>(null);
   const [marks, setMarks] = useState<Record<string, string>>({});
@@ -17,42 +23,58 @@ export default function ExamsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ name: '', subject: '', date: new Date().toISOString().split('T')[0], maxMarks: '100' });
 
-  // Load classes
+  // Init stores
   useEffect(() => {
-    api.get('/classes').then(({ data }) => {
-      setClasses(data.data.classes);
-      if (data.data.classes.length > 0) setSelectedClass(data.data.classes[0]._id);
-    });
+    const c1 = initStudents();
+    const c2 = initExams();
+    return () => { c1(); c2(); };
   }, []);
 
-  // Load exams + students when class changes
+  // Auto-select first class
+  useEffect(() => {
+    if (classes.length > 0 && !selectedClass) setSelectedClass(classes[0]._id);
+  }, [classes]);
+
+  // Load exams + students from cache when class changes
   useEffect(() => {
     if (!selectedClass) return;
     setSelectedExam(null);
-    setLoading(true);
-    Promise.all([
-      api.get(`/exams?classId=${selectedClass}`),
-      api.get(`/students?classId=${selectedClass}`),
-    ]).then(([examsRes, studentsRes]) => {
-      setExams(examsRes.data.data.exams || []);
-      setStudents(studentsRes.data.data.students || []);
-    }).finally(() => setLoading(false));
+    loadExamsByClass(selectedClass);
+    loadByClass(selectedClass);
   }, [selectedClass]);
 
-  // Load marks + absent flags when exam changes
+  // Load marks when exam changes — offline-first: cache → render → background refresh
   useEffect(() => {
     if (!selectedExam) return;
-    setLoading(true);
-    Promise.all([
-      api.get(`/exams/${selectedExam._id}/marks`),
-      api.get(`/attendance/absent-on-date?classId=${selectedClass}&date=${selectedExam.date.split('T')[0]}`),
-    ]).then(([marksRes, absentRes]) => {
-      const m: Record<string, string> = {};
-      (marksRes.data.data.marks || []).forEach((mk: any) => {
-        m[mk.studentId?._id ?? mk.studentId] = String(mk.marksObtained);
+
+    // Step 1: Instantly show cached marks
+    loadMarksByExam(selectedExam._id);
+    const m: Record<string, string> = {};
+    cachedMarks
+      .filter((mk: any) => mk.examId === selectedExam._id)
+      .forEach((mk: any) => {
+        m[mk.studentId] = String(mk.marksObtained);
       });
+    if (Object.keys(m).length > 0) {
       setMarks(m);
-      setAbsentIds(new Set<string>(absentRes.data.data.absentStudentIds || []));
+    }
+
+    // Step 2: Silently fetch fresh data in background
+    setLoading(Object.keys(m).length === 0); // Only show spinner if no cached data
+    Promise.all([
+      api.get(`/exams/${selectedExam._id}/marks`).catch(() => null),
+      api.get(`/attendance/absent-on-date?classId=${selectedClass}&date=${selectedExam.date.split('T')[0]}`).catch(() => null),
+    ]).then(([marksRes, absentRes]) => {
+      const freshMarks: Record<string, string> = {};
+
+      if (marksRes) {
+        (marksRes.data.data.marks || []).forEach((mk: any) => {
+          freshMarks[mk.studentId?._id ?? mk.studentId] = String(mk.marksObtained);
+        });
+        setMarks(freshMarks);
+      }
+
+      setAbsentIds(new Set<string>(absentRes?.data?.data?.absentStudentIds || []));
       setSaved(false);
     }).finally(() => setLoading(false));
   }, [selectedExam]);
@@ -66,10 +88,11 @@ export default function ExamsPage() {
         maxMarks: parseInt(form.maxMarks),
       });
       const created = data.data.exam;
-      setExams(prev => [created, ...prev]);
       setSelectedExam(created);
       setShowCreate(false);
       setForm({ name: '', subject: '', date: new Date().toISOString().split('T')[0], maxMarks: '100' });
+      // Sync to pull the new exam into cache
+      syncEngine.syncNow();
     } catch (e: any) {
       alert(e?.response?.data?.message || 'Failed to create exam');
     }
@@ -85,6 +108,7 @@ export default function ExamsPage() {
     try {
       await api.post(`/exams/${selectedExam._id}/marks`, { marks: payload });
       setSaved(true);
+      syncEngine.syncNow();
     } catch (e: any) {
       alert(e?.response?.data?.message || 'Failed to save marks');
     } finally { setSaving(false); }

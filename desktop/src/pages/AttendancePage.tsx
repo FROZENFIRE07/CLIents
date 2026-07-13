@@ -1,31 +1,73 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import api from '../services/api';
+import PageHero from '../components/PageHero';
+import { useClassStore } from '../stores/useClassStore';
+import { useDashboardStore } from '../stores/useDashboardStore';
+import { cache } from '../services/cache';
 
 export default function AttendancePage() {
-  const [classes, setClasses] = useState<any[]>([]);
+  const { classes } = useClassStore();
+  const { sessions: allSessions } = useDashboardStore();
   const [selectedClass, setSelectedClass] = useState('');
   const [timeline, setTimeline] = useState<any[]>([]);
-  const [sessions, setSessions] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [hasData, setHasData] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const mountedRef = useRef(true);
 
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+
+  // Auto-select first class
   useEffect(() => {
-    api.get('/classes').then(({ data }) => {
-      setClasses(data.data.classes);
-      if (data.data.classes.length > 0) setSelectedClass(data.data.classes[0]._id);
-    });
-  }, []);
+    if (classes.length > 0 && !selectedClass) setSelectedClass(classes[0]._id);
+  }, [classes]);
 
+  // Filter sessions from cache for selected class
+  const sessions = allSessions.filter((s: any) => {
+    const classId = typeof s.classId === 'object' ? s.classId?._id : s.classId;
+    return classId === selectedClass;
+  });
+
+  // ── Offline-first: cache → render → background refresh ──
   useEffect(() => {
     if (!selectedClass) return;
-    setLoading(true);
-    Promise.all([
-      api.get(`/analytics/attendance?classId=${selectedClass}`),
-      api.get(`/attendance/sessions?classId=${selectedClass}&limit=20`),
-    ]).then(([analyticsRes, sessionsRes]) => {
-      setTimeline(analyticsRes.data.data.timeline || []);
-      setSessions(sessionsRes.data.data.sessions || []);
-    }).catch(() => {}).finally(() => setLoading(false));
+
+    // Step 1: Instantly load cached timeline
+    (async () => {
+      const cached = await cache.getMeta<any[]>(`timeline_${selectedClass}`);
+      if (cached && cached.length > 0 && mountedRef.current) {
+        setTimeline(cached);
+        setHasData(true);
+      } else if (sessions.length > 0) {
+        // Compute basic timeline from cached sessions
+        const tl = sessions.map((s: any) => ({
+          date: s.date,
+          rate: s.totalStudents > 0
+            ? ((s.presentCount / s.totalStudents) * 100).toFixed(1)
+            : '0',
+          present: s.presentCount,
+          absent: s.absentCount,
+        }));
+        setTimeline(tl);
+        setHasData(true);
+      }
+    })();
+
+    // Step 2: Silently fetch fresh data in background
+    setRefreshing(true);
+    api.get(`/analytics/attendance?classId=${selectedClass}`)
+      .then(({ data }) => {
+        if (!mountedRef.current) return;
+        const tl = data.data.timeline || [];
+        setTimeline(tl);
+        setHasData(true);
+        // Update cache for next time
+        cache.setMeta(`timeline_${selectedClass}`, tl);
+      })
+      .catch(() => {
+        // API failed — we already have cached data showing, so do nothing
+      })
+      .finally(() => { if (mountedRef.current) setRefreshing(false); });
   }, [selectedClass]);
 
   const chartData = timeline.map((t: any) => ({
@@ -40,14 +82,19 @@ export default function AttendancePage() {
 
   const lowAttendanceDays = chartData.filter(d => d.rate < 75).length;
 
+  // Bar color: high attendance = bright white, medium = dim white, low = very dim
+  function barColor(rate: number) {
+    if (rate >= 75) return 'rgba(255,255,255,0.85)';
+    if (rate >= 50) return 'rgba(255,255,255,0.4)';
+    return 'rgba(255,255,255,0.18)';
+  }
+
   return (
     <>
-      <div className="page-header">
-        <h2>Attendance Analytics</h2>
-        <p>Track attendance patterns and identify trends</p>
-      </div>
+      <PageHero label="Attendance" sub="Track patterns and identify trends." height={100} />
 
-      <div style={{ marginBottom: 20, display: 'flex', gap: 8 }}>
+      {/* Class selector */}
+      <div style={{ marginBottom: 20, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         {classes.map((c) => (
           <button key={c._id}
             className={`btn ${selectedClass === c._id ? 'btn-primary' : 'btn-outline'}`}
@@ -56,42 +103,80 @@ export default function AttendancePage() {
             {c.name}
           </button>
         ))}
+        {refreshing && (
+          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginLeft: 8 }}>
+            ● Refreshing…
+          </span>
+        )}
       </div>
 
-      {loading ? (
+      {!hasData && !refreshing ? (
+        <div className="loading-center" style={{ height: 300, color: 'var(--text-muted)' }}>
+          No attendance data yet
+        </div>
+      ) : !hasData && refreshing ? (
         <div className="loading-center"><div className="spinner" /></div>
       ) : (
         <>
+          {/* Stats strip */}
           <div className="stats-grid">
             <div className="stat-card">
               <div className="stat-label">Average Rate</div>
-              <div className="stat-value" style={{ color: avgRate >= 75 ? 'var(--success)' : 'var(--danger)' }}>{avgRate}%</div>
+              <div className="stat-value">{avgRate}%</div>
+              <div className="stat-sub" style={{ color: avgRate >= 75 ? 'rgba(255,255,255,0.5)' : 'rgba(255,180,167,0.8)' }}>
+                {avgRate >= 75 ? 'Good standing' : 'Below target'}
+              </div>
             </div>
             <div className="stat-card">
               <div className="stat-label">Total Sessions</div>
               <div className="stat-value">{sessions.length}</div>
+              <div className="stat-sub">Recorded sessions</div>
             </div>
             <div className="stat-card">
               <div className="stat-label">Low Attendance Days</div>
-              <div className="stat-value" style={{ color: 'var(--warning)' }}>{lowAttendanceDays}</div>
+              <div className="stat-value">{lowAttendanceDays}</div>
               <div className="stat-sub">Below 75%</div>
             </div>
           </div>
 
+          {/* Bar chart */}
           <div className="chart-card">
             <h3>Daily Attendance Rate</h3>
             {chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={chartData}>
-                  <XAxis dataKey="date" stroke="#606080" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#606080" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} unit="%" />
+                <BarChart data={chartData} barCategoryGap="30%">
+                  <XAxis
+                    dataKey="date"
+                    stroke="rgba(255,255,255,0.2)"
+                    tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 12 }}
+                    tickLine={false}
+                    axisLine={{ stroke: 'rgba(255,255,255,0.07)' }}
+                  />
+                  <YAxis
+                    stroke="rgba(255,255,255,0.2)"
+                    tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 12 }}
+                    tickLine={false}
+                    axisLine={false}
+                    domain={[0, 100]}
+                    unit="%"
+                  />
                   <Tooltip
-                    contentStyle={{ background: '#1E1E38', border: '1px solid #2A2A4A', borderRadius: 8, fontSize: 13 }}
-                    labelStyle={{ color: '#9090B0' }}
+                    cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                    contentStyle={{
+                      background: '#1a1a1a',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: 10,
+                      fontSize: 13,
+                      color: '#fff',
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+                    }}
+                    labelStyle={{ color: 'rgba(255,255,255,0.5)', marginBottom: 4 }}
+                    itemStyle={{ color: '#fff' }}
+                    formatter={(val: any) => [`${val}%`, 'Attendance']}
                   />
                   <Bar dataKey="rate" radius={[4, 4, 0, 0]} name="Attendance %">
                     {chartData.map((entry, i) => (
-                      <Cell key={i} fill={entry.rate >= 75 ? '#00B894' : entry.rate >= 50 ? '#FDCB6E' : '#E17055'} />
+                      <Cell key={i} fill={barColor(entry.rate)} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -101,24 +186,59 @@ export default function AttendancePage() {
             )}
           </div>
 
+          {/* Session history table */}
           <div className="chart-card">
             <h3>Session History</h3>
             <div className="table-container" style={{ border: 'none' }}>
               <table>
-                <thead><tr><th>Date</th><th>Present</th><th>Absent</th><th>Total</th><th>Rate</th><th>Status</th></tr></thead>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Present</th>
+                    <th>Absent</th>
+                    <th>Total</th>
+                    <th>Rate</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {sessions.length === 0 ? (
                     <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>No sessions</td></tr>
                   ) : sessions.map((s: any) => {
                     const rate = s.totalStudents > 0 ? Math.round((s.presentCount / s.totalStudents) * 100) : 0;
+                    const rateColor = rate >= 75 ? 'rgba(255,255,255,0.75)' : 'rgba(255,180,167,0.8)';
                     return (
                       <tr key={s._id}>
                         <td>{new Date(s.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
-                        <td style={{ color: 'var(--success)' }}>{s.presentCount}</td>
-                        <td style={{ color: 'var(--danger)' }}>{s.absentCount}</td>
+                        <td style={{ color: 'rgba(255,255,255,0.75)' }}>{s.presentCount}</td>
+                        <td style={{ color: 'rgba(255,255,255,0.4)' }}>{s.absentCount}</td>
                         <td>{s.totalStudents}</td>
-                        <td><span className={`badge ${rate >= 75 ? 'badge-success' : 'badge-danger'}`}>{rate}%</span></td>
-                        <td><span className={`badge badge-${s.status === 'submitted' ? 'primary' : s.status === 'notifications_sent' ? 'success' : 'warning'}`}>{s.status}</span></td>
+                        <td>
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '2px 10px',
+                            borderRadius: 999,
+                            fontSize: 12,
+                            fontWeight: 600,
+                            background: rate >= 75 ? 'rgba(255,255,255,0.08)' : 'rgba(255,181,167,0.1)',
+                            color: rateColor,
+                          }}>
+                            {rate}%
+                          </span>
+                        </td>
+                        <td>
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '2px 10px',
+                            borderRadius: 999,
+                            fontSize: 12,
+                            fontWeight: 500,
+                            background: 'rgba(255,255,255,0.05)',
+                            color: 'rgba(255,255,255,0.45)',
+                          }}>
+                            {s.status}
+                          </span>
+                        </td>
                       </tr>
                     );
                   })}

@@ -18,7 +18,7 @@ export default function LoginPage() {
       localStorage.setItem('accessToken', data.data.accessToken);
       localStorage.setItem('refreshToken', data.data.refreshToken);
       localStorage.setItem('user', JSON.stringify(data.data.user));
-      navigate('/');
+      navigate('/home');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Login failed');
     } finally {

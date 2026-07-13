@@ -22,3 +22,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Electron build output — never commit binaries
+release/
+release-builds/
+out/
+
+# WhatsApp session and cache — local only
+.wwebjs_auth/
+.wwebjs_cache/
