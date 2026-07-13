@@ -21,6 +21,7 @@ const versionRoutes = require('./routes/version.routes');
 const whatsappRoutes = require('./routes/whatsapp.routes');
 const workerRoutes = require('./routes/worker.routes');
 const syncRoutes = require('./routes/sync.routes');
+const bootstrapRoutes = require('./routes/bootstrap.routes');
 
 const app = express();
 
@@ -52,6 +53,7 @@ app.use('/api/version', versionRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/worker', workerRoutes);
 app.use('/api/sync', syncRoutes);
+app.use('/api/bootstrap', bootstrapRoutes);
 
 // ---------- 404 Handler ----------
 app.use((req, res) => {
