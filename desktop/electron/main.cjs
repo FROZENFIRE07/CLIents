@@ -108,7 +108,7 @@ function createWindow() {
   if (IS_DEV) {
     mainWindow.loadURL(DEV_URL);
   } else {
-    mainWindow.loadURL('app://./index.html');
+    mainWindow.loadURL('app://localhost/index.html');
   }
 
   // Show window after content is ready — start maximized if saved or first run
