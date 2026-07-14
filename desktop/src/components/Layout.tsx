@@ -5,6 +5,8 @@ import SystemStatus from './SystemStatus';
 import { useClassStore } from '../stores/useClassStore';
 import { useDashboardStore } from '../stores/useDashboardStore';
 import { useNotificationStore } from '../stores/useNotificationStore';
+import { syncEngine } from '../services/syncEngine';
+import { cache } from '../services/cache';
 
 export default function Layout() {
   const navigate = useNavigate();
@@ -22,6 +24,8 @@ export default function Layout() {
   }, []);
 
   const handleLogout = () => {
+    syncEngine.stop();
+    cache.clearAll();
     localStorage.clear();
     navigate('/login');
   };

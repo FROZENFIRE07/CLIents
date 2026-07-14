@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Eye, EyeOff, ArrowRight } from 'lucide-react';
 import api from '../services/api';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -29,28 +31,83 @@ export default function LoginPage() {
 
   return (
     <div className="login-container">
-      <form className="login-card" onSubmit={handleSubmit}>
-        <div className="logo-wrap">
-          <div className="logo-circle">G</div>
-          <h2>Gorade Classes</h2>
-          <p>Management Dashboard</p>
+      <div className="login-panel">
+        {/* Left: branding */}
+        <div className="login-brand">
+          <div className="login-brand-content">
+            <div className="login-logo">G</div>
+            <h1>Gorade<br />Classes</h1>
+            <p className="login-tagline">Classroom Management System</p>
+          </div>
+          <p className="login-footer-text">
+            Attendance · Exams · Notifications
+          </p>
         </div>
-        {error && <div className="error-box">{error}</div>}
-        <div className="form-group">
-          <label>Username</label>
-          <input value={username} onChange={(e) => setUsername(e.target.value)}
-            placeholder="Enter username" autoFocus />
+
+        {/* Right: form */}
+        <div className="login-form-side">
+          <div className="login-form-inner">
+            <h2>Welcome back</h2>
+            <p className="login-subtitle">Sign in to continue managing your classes</p>
+
+            {error && (
+              <div className="error-box">{error}</div>
+            )}
+
+            <form onSubmit={handleSubmit}>
+              <div className="login-field">
+                <label htmlFor="login-user">Username</label>
+                <input
+                  id="login-user"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Enter your username"
+                  autoFocus
+                  autoComplete="username"
+                />
+              </div>
+
+              <div className="login-field">
+                <label htmlFor="login-pass">Password</label>
+                <div className="login-password-wrap">
+                  <input
+                    id="login-pass"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    className="login-eye-btn"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                className="login-submit"
+                disabled={loading || !username || !password}
+                type="submit"
+              >
+                {loading ? (
+                  <span className="login-spinner" />
+                ) : (
+                  <>
+                    Sign In
+                    <ArrowRight size={16} />
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
         </div>
-        <div className="form-group">
-          <label>Password</label>
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter password" />
-        </div>
-        <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: 8 }}
-          disabled={loading || !username || !password} type="submit">
-          {loading ? 'Signing in...' : 'Sign In'}
-        </button>
-      </form>
+      </div>
     </div>
   );
 }

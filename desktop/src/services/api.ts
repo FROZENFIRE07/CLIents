@@ -36,7 +36,7 @@ api.interceptors.response.use(
     const original = error.config as any;
     if (!original) return Promise.reject(error);
 
-    // Token refresh on 401
+    // Token refresh on 401 (only for expired tokens, not invalid credentials)
     if (
       error.response?.status === 401 &&
       (error.response?.data as any)?.code === 'TOKEN_EXPIRED' &&
@@ -45,14 +45,17 @@ api.interceptors.response.use(
       original._retry = true;
       try {
         const refreshToken = localStorage.getItem('refreshToken');
+        if (!refreshToken) throw new Error('No refresh token');
         const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
         localStorage.setItem('accessToken', data.data.accessToken);
         localStorage.setItem('refreshToken', data.data.refreshToken);
         original.headers.Authorization = `Bearer ${data.data.accessToken}`;
         return api(original);
       } catch {
-        localStorage.clear();
-        window.location.href = '/login';
+        // Only clear auth tokens, not all localStorage
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        window.location.hash = '#/login';
         return Promise.reject(error);
       }
     }

@@ -13,7 +13,6 @@ import PerformancePage from './pages/PerformancePage';
 import NotificationsPage from './pages/NotificationsPage';
 import ExamsPage from './pages/ExamsPage';
 import { syncEngine } from './services/syncEngine';
-import { cache } from './services/cache';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('accessToken');
@@ -23,31 +22,21 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 /**
  * SyncInitializer — starts the SyncEngine when user is authenticated.
- * Sits inside BrowserRouter so it can use hooks.
+ * Uses location changes to detect login/logout transitions.
  */
 function SyncInitializer() {
-  const token = localStorage.getItem('accessToken');
+  const location = useLocation();
 
   useEffect(() => {
+    const token = localStorage.getItem('accessToken');
     if (token) {
+      console.log('[SyncInit] Token found, starting sync engine...');
       syncEngine.start();
-    }
-    return () => {
+    } else {
+      console.log('[SyncInit] No token, stopping sync engine...');
       syncEngine.stop();
-    };
-  }, [token]);
-
-  // Listen for logout (localStorage clear) → wipe IndexedDB cache
-  useEffect(() => {
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'accessToken' && !e.newValue) {
-        syncEngine.stop();
-        cache.clearAll();
-      }
-    };
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
-  }, []);
+    }
+  }, [location.pathname]);
 
   return null;
 }
