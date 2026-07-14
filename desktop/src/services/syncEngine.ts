@@ -62,7 +62,6 @@ class SyncEngine {
 
   stop() {
     this.isRunning = false;
-    this.lastSync = null;
     window.removeEventListener('online', this.handleOnline);
     window.removeEventListener('offline', this.handleOffline);
     if (this.syncIntervalId) {

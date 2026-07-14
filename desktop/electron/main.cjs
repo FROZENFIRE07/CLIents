@@ -98,6 +98,7 @@ function createWindow() {
     icon: iconPath,
 
     webPreferences: {
+      partition: 'persist:cmslite',
       preload:          path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration:  false,
