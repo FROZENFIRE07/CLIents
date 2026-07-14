@@ -143,7 +143,21 @@ function createWindow() {
 
 // ── App lifecycle ────────────────────────────────────────────────────────────
 
-app.whenReady().then(() => {
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // Someone tried to run a second instance, we should focus our window.
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+
+  app.whenReady().then(() => {
   // Register the custom protocol handler — serves files from dist/
   if (!IS_DEV) {
     const distDir = path.join(__dirname, '..', 'dist');
@@ -172,11 +186,12 @@ app.whenReady().then(() => {
   });
 });
 
-app.on('before-quit', () => { app.isQuitting = true; });
+  app.on('before-quit', () => { app.isQuitting = true; });
 
-app.on('window-all-closed', () => {
-  // Tray keeps the app alive — don't quit on all windows closed
-});
+  app.on('window-all-closed', () => {
+    // Tray keeps the app alive — don't quit on all windows closed
+  });
+}
 
 // ── IPC: window controls (custom title bar) ──────────────────────────────────
 
