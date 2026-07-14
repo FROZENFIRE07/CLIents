@@ -9,9 +9,10 @@
  * 5. Start the notification worker (background WhatsApp delivery)
  * 6. Graceful shutdown: stop worker → destroy WhatsApp → exit
  */
-const { app, BrowserWindow, ipcMain, Menu, screen, protocol, net } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, screen, protocol, net, session } = require('electron');
 const path = require('path');
 const fs   = require('fs');
+const urlMod = require('url');
 const { createTray, setMainWindow } = require('./tray.cjs');
 const { startWorker, stopWorker, getWorkerStatus } = require('./worker.cjs');
 
@@ -159,18 +160,20 @@ if (!gotTheLock) {
   });
 
   app.whenReady().then(() => {
-  // Register the custom protocol handler — serves files from dist/
+  // Register the custom protocol handler on the exact partition we use for the window!
   if (!IS_DEV) {
     const distDir = path.join(__dirname, '..', 'dist');
-    protocol.handle('app', (request) => {
-      const url = new URL(request.url);
+    const customSession = session.fromPartition('persist:cmslite');
+    
+    customSession.protocol.handle('app', (request) => {
+      const parsedUrl = new URL(request.url);
       // Map pathname to file in dist/  (e.g. /index.html → dist/index.html)
-      let filePath = path.join(distDir, decodeURIComponent(url.pathname));
+      let filePath = path.join(distDir, decodeURIComponent(parsedUrl.pathname));
       // Default to index.html for the root
-      if (url.pathname === '/' || url.pathname === '') {
+      if (parsedUrl.pathname === '/' || parsedUrl.pathname === '') {
         filePath = path.join(distDir, 'index.html');
       }
-      return net.fetch('file://' + filePath);
+      return net.fetch(urlMod.pathToFileURL(filePath).toString());
     });
   }
 
