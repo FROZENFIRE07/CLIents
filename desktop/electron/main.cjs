@@ -9,7 +9,7 @@
  * 5. Start the notification worker (background WhatsApp delivery)
  * 6. Graceful shutdown: stop worker → destroy WhatsApp → exit
  */
-const { app, BrowserWindow, ipcMain, Menu, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, screen, protocol, net } = require('electron');
 const path = require('path');
 const fs   = require('fs');
 const { createTray, setMainWindow } = require('./tray.cjs');
@@ -17,6 +17,21 @@ const { startWorker, stopWorker, getWorkerStatus } = require('./worker.cjs');
 
 const IS_DEV  = process.env.NODE_ENV === 'development' || !app.isPackaged;
 const DEV_URL = 'http://localhost:5173';
+
+// ── Custom protocol: gives the app a real origin so localStorage persists ────
+// file:// URLs have an opaque origin in Chromium — localStorage is lost on restart.
+// Using app:// gives us a proper 'app://./...' origin that Chromium persists.
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'app',
+    privileges: {
+      standard:        true,
+      secure:          true,
+      supportFetchAPI: true,
+      corsEnabled:     true,
+    },
+  },
+]);
 
 // ── Window state persistence ─────────────────────────────────────────────────
 const STATE_FILE = path.join(app.getPath('userData'), 'window-state.json');
@@ -93,7 +108,7 @@ function createWindow() {
   if (IS_DEV) {
     mainWindow.loadURL(DEV_URL);
   } else {
-    mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
+    mainWindow.loadURL('app://./index.html');
   }
 
   // Show window after content is ready — start maximized if saved or first run
@@ -129,6 +144,21 @@ function createWindow() {
 // ── App lifecycle ────────────────────────────────────────────────────────────
 
 app.whenReady().then(() => {
+  // Register the custom protocol handler — serves files from dist/
+  if (!IS_DEV) {
+    const distDir = path.join(__dirname, '..', 'dist');
+    protocol.handle('app', (request) => {
+      const url = new URL(request.url);
+      // Map pathname to file in dist/  (e.g. /index.html → dist/index.html)
+      let filePath = path.join(distDir, decodeURIComponent(url.pathname));
+      // Default to index.html for the root
+      if (url.pathname === '/' || url.pathname === '') {
+        filePath = path.join(distDir, 'index.html');
+      }
+      return net.fetch('file://' + filePath);
+    });
+  }
+
   createWindow();
   createTray();
   startWorker();
