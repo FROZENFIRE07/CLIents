@@ -36,9 +36,9 @@ class SyncEngine {
     if (this.isRunning) return;
     this.isRunning = true;
 
-    // Restore last sync timestamp from IndexedDB
-    const saved = await cache.getMeta<string>('lastSyncTimestamp');
-    if (saved) this.lastSync = new Date(saved);
+    // Start from a clean slate so desktop always hydrates from MongoDB.
+    await cache.clearAll();
+    this.lastSync = null;
 
     // Network listeners
     window.addEventListener('online', this.handleOnline);
@@ -80,22 +80,13 @@ class SyncEngine {
 
     try {
       let result: any;
+      console.log('[SyncEngine] Bootstrap sync → GET /bootstrap');
+      const { data } = await api.get('/bootstrap');
+      result = data.data;
 
-      if (!this.lastSync) {
-        // ── First sync: use /bootstrap (one request, everything) ──
-        console.log('[SyncEngine] First sync → GET /bootstrap');
-        const { data } = await api.get('/bootstrap');
-        result = data.data;
-
-        // Cache the user object too
-        if (result.user) {
-          localStorage.setItem('user', JSON.stringify(result.user));
-        }
-      } else {
-        // ── Delta sync: only changed records ──
-        const since = this.lastSync.toISOString();
-        const { data } = await api.get(`/sync?since=${since}`);
-        result = data.data;
+      // Cache the user object too
+      if (result.user) {
+        localStorage.setItem('user', JSON.stringify(result.user));
       }
 
       // Upsert all records into IndexedDB

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import PageHero from '../components/PageHero';
 import { useNotificationStore } from '../stores/useNotificationStore';
 
@@ -9,10 +9,26 @@ export default function NotificationsPage() {
     init,
   } = useNotificationStore();
 
+  const [isFlushing, setIsFlushing] = useState(false);
+
   // Init store refresh listener
   useEffect(() => {
     const cleanup = init();
     return cleanup;
+  }, []);
+
+  // Auto-kick worker if there are queued notifications when page loads
+  useEffect(() => {
+    if (isLoaded && stats && stats.queued > 0) {
+      (window as any).electronAPI?.processNow?.();
+    }
+  }, [isLoaded]);
+
+  const handleSendNow = useCallback(() => {
+    setIsFlushing(true);
+    (window as any).electronAPI?.processNow?.();
+    // Show feedback for 2s then reset
+    setTimeout(() => setIsFlushing(false), 2000);
   }, []);
 
   const PAGE_SIZE = 25;
@@ -27,21 +43,35 @@ export default function NotificationsPage() {
     <>
       <PageHero label="Notifications" sub="WhatsApp delivery logs and queue status." height={100} />
 
-      {/* Stats */}
+      {/* Stats + Send Now */}
       {stats && (
-        <div className="stats-grid">
-          <div className="stat-card">
-            <div className="stat-label">Sent</div>
-            <div className="stat-value" style={{ color: 'var(--success)' }}>{stats.sent}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 4 }}>
+          <div className="stats-grid" style={{ flex: 1, margin: 0 }}>
+            <div className="stat-card">
+              <div className="stat-label">Sent</div>
+              <div className="stat-value" style={{ color: 'var(--success)' }}>{stats.sent}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">Queued</div>
+              <div className="stat-value" style={{ color: 'var(--warning)' }}>{stats.queued}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">Failed</div>
+              <div className="stat-value" style={{ color: 'var(--danger)' }}>{stats.failed}</div>
+            </div>
           </div>
-          <div className="stat-card">
-            <div className="stat-label">Queued</div>
-            <div className="stat-value" style={{ color: 'var(--warning)' }}>{stats.queued}</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">Failed</div>
-            <div className="stat-value" style={{ color: 'var(--danger)' }}>{stats.failed}</div>
-          </div>
+
+          {/* Send Now button — only visible when there's something to send */}
+          {stats.queued > 0 && (
+            <button
+              className="btn btn-primary"
+              style={{ padding: '10px 20px', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}
+              onClick={handleSendNow}
+              disabled={isFlushing}
+            >
+              {isFlushing ? '⚡ Sending…' : `⚡ Send Now (${stats.queued})`}
+            </button>
+          )}
         </div>
       )}
 
@@ -104,3 +134,4 @@ export default function NotificationsPage() {
     </>
   );
 }
+

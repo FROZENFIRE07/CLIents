@@ -142,6 +142,7 @@ function handleOnline() {
   if (isOnline) return;
   isOnline = true;
   isPaused = false;
+  consecutiveEmpty = 0; // reset so we poll fast after reconnect
   console.log('[GUARDIAN] 🌐 Network online — resuming...');
   broadcastStatus('online');
 
@@ -209,6 +210,7 @@ async function initWhatsApp() {
     waReady = true;
     waInitializing = false;
     waLastError = null;
+    consecutiveEmpty = 0; // reset so any queued notifications are picked up immediately
     console.log('[WA] ✅ WhatsApp client is ready!');
     broadcastToRenderer('worker:update', { event: 'ready', whatsappReady: true });
 
@@ -444,20 +446,29 @@ function startWorker() {
   console.log('[GUARDIAN] 🛡️ Starting System Guardian...');
 
   // Network detection via Electron's net module
-  const { net } = require('electron');
+  const { net, ipcMain } = require('electron');
 
   // Check initial connectivity
   isOnline = net.isOnline();
   console.log(`[GUARDIAN] Initial network state: ${isOnline ? 'online' : 'offline'}`);
 
   // Listen for connectivity changes
-  // Electron doesn't have direct online/offline events in main process,
-  // so we use a periodic check
   setInterval(() => {
     const nowOnline = net.isOnline();
     if (nowOnline && !isOnline) handleOnline();
     else if (!nowOnline && isOnline) handleOffline();
   }, 5000);
+
+  // ── IPC: renderer can wake the worker immediately ─────────────────────
+  // Called by the renderer after attendance is submitted — kicks polling
+  // without waiting for the next scheduled interval (which could be 60s).
+  ipcMain.on('worker:processNow', () => {
+    console.log('[GUARDIAN] ⚡ Renderer requested immediate queue flush');
+    consecutiveEmpty = 0;    // reset backoff so we poll at POLL_FAST
+    if (!isProcessing && isOnline && waReady) {
+      scheduleNextPoll(200); // near-instant kick
+    }
+  });
 
   // Initialize WhatsApp
   initWhatsApp();

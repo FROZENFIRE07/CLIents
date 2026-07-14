@@ -15,6 +15,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeAllListeners('worker:update');
   },
 
+  // Wake the worker immediately — call this after submitting attendance
+  // so queued notifications are processed now, not in up to 60s
+  processNow: () => ipcRenderer.send('worker:processNow'),
+
   // ── App ───────────────────────────────────────────────────────────────────
   quit: () => ipcRenderer.send('app:quit'),
 

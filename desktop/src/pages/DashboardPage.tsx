@@ -31,8 +31,8 @@ function fmtShortDate(dateStr: string) {
 
 /* ── Circular SVG ring ───────────────────── */
 function RingProgress({ value, max }: { value: number; max: number }) {
-  const r = 52;
-  const sw = 4.5;
+  const r = 80;
+  const sw = 5;
   const size = (r + sw) * 2 + 4;
   const circ = 2 * Math.PI * r;
   const pct = max > 0 ? Math.min(value / max, 1) : 0;

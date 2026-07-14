@@ -952,8 +952,8 @@ tr:hover td {
 /* ── Row 1: Greeting + Journey (auto height) ── */
 .db-top-row {
   display: grid;
-  grid-template-columns: 0.9fr 1.1fr;
-  gap: 16px;
+  grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
+  gap: 10px;
   align-items: start;
   flex-shrink: 0;
 }
@@ -962,7 +962,7 @@ tr:hover td {
 .db-main-row {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 16px;
+  gap: 14px;
   flex: 1;
 }
 
@@ -971,7 +971,8 @@ tr:hover td {
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding: 6px 0;
+  padding: 10px 0 6px;
+  max-width: 380px;
   animation: db-fade-up 0.5s ease both;
 }
 
@@ -1070,6 +1071,7 @@ tr:hover td {
 /* ── Today's Journey card ── */
 .db-journey-card {
   animation-delay: 0.07s;
+  min-height: 196px;
 }
 
 .db-journey-track {
@@ -1188,9 +1190,11 @@ tr:hover td {
 
 .db-ring-row {
   display: flex;
-  gap: 18px;
-  align-items: flex-start;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
   flex: 1;
+  justify-content: flex-start;
 }
 
 /* Ring */
@@ -1200,6 +1204,8 @@ tr:hover td {
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-top: 2px;
+  margin-bottom: 2px;
 }
 
 .db-ring-center {
@@ -1213,7 +1219,7 @@ tr:hover td {
 }
 
 .db-ring-num {
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 800;
   color: #ffffff;
   letter-spacing: -1px;
@@ -1221,14 +1227,14 @@ tr:hover td {
 }
 
 .db-ring-denom {
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255,255,255,0.6);
   font-weight: 500;
   margin-top: 1px;
 }
 
 .db-ring-sub {
-  font-size: 8px;
+  font-size: 9px;
   color: rgba(255,255,255,0.50);
   text-align: center;
   margin-top: 3px;
@@ -1242,15 +1248,18 @@ tr:hover td {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  justify-content: center;
+  gap: 4px;
+  justify-content: flex-start;
   min-width: 0;
+  width: 100%;
+  padding-top: 2px;
 }
 
 .db-no-sessions {
-  font-size: 12px;
+  font-size: 13px;
   color: rgba(255,255,255,0.2);
-  padding: 12px 0;
+  padding: 14px 0;
+  text-align: center;
 }
 
 .db-session-row {
@@ -1258,7 +1267,7 @@ tr:hover td {
   grid-template-columns: 18px 1fr auto auto;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px;
+  padding: 9px 10px;
   border-radius: 7px;
   border: 1px solid transparent;
   transition: all 0.18s;
@@ -1290,7 +1299,7 @@ tr:hover td {
 }
 
 .db-session-name {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: rgba(255,255,255,0.8);
   white-space: nowrap;
@@ -1299,14 +1308,14 @@ tr:hover td {
 }
 
 .db-session-status {
-  font-size: 10px;
+  font-size: 11px;
   color: rgba(255,255,255,0.52);
 }
 
 .db-session-status--done { color: rgba(255,255,255,0.65); }
 
 .db-session-time {
-  font-size: 10px;
+  font-size: 11px;
   color: rgba(255,255,255,0.52);
   font-variant-numeric: tabular-nums;
 }
@@ -1367,12 +1376,14 @@ tr:hover td {
 /* ── Needs Attention card ── */
 .db-attention-card {
   animation-delay: 0.12s;
+  min-height: 100%;
+  justify-content: space-between;
 }
 
 .db-attention-list {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 7px;
   flex-shrink: 0;
 }
 
@@ -1381,7 +1392,7 @@ tr:hover td {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 10px;
+  padding: 13px 12px;
   background: transparent;
   border: 1px solid rgba(255,255,255,0.05);
   border-radius: 9px;
@@ -1397,8 +1408,8 @@ tr:hover td {
 }
 
 .db-attention-icon {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 8px;
   border: 1px solid rgba(255,255,255,0.08);
   background: rgba(255,255,255,0.04);
@@ -1418,14 +1429,14 @@ tr:hover td {
 }
 
 .db-attention-title {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: rgba(255,255,255,0.85);
   letter-spacing: 0.1px;
 }
 
 .db-attention-sub {
-  font-size: 10px;
+  font-size: 11px;
   color: rgba(255,255,255,0.55);
   font-weight: 400;
 }
@@ -1434,8 +1445,8 @@ tr:hover td {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
-  font-size: 11px;
+  padding: 10px 12px;
+  font-size: 12px;
   color: rgba(255,255,255,0.28);
   font-weight: 400;
 }
@@ -1443,30 +1454,30 @@ tr:hover td {
 /* Notification breakdown */
 .db-notif-breakdown {
   margin-top: auto;
-  padding-top: 16px;
+  padding-top: 20px;
   border-top: 1px solid rgba(255,255,255,0.06);
 }
 
 .db-notif-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 7px;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
 .db-notif-row:last-child { margin-bottom: 0; }
 
 .db-notif-label {
-  font-size: 10px;
+  font-size: 12px;
   color: rgba(255,255,255,0.58);
   font-weight: 500;
-  width: 40px;
+  width: 50px;
   flex-shrink: 0;
 }
 
 .db-notif-bar-track {
   flex: 1;
-  height: 3px;
+  height: 5px;
   background: rgba(255,255,255,0.06);
   border-radius: 2px;
   overflow: hidden;
@@ -1484,10 +1495,10 @@ tr:hover td {
 .db-notif-bar--failed { background: rgba(255,181,167,0.5); }
 
 .db-notif-count {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   color: rgba(255,255,255,0.75);
-  width: 24px;
+  width: 30px;
   text-align: right;
   flex-shrink: 0;
 }
